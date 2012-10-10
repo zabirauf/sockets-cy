@@ -23,7 +23,7 @@ sock.run()
 ```
 
 TODO
-____
+----
 
 Its just a basic library. So many things are missing. Currently it connects to TCP server only.
 
