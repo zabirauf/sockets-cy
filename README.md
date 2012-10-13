@@ -7,13 +7,14 @@ Usage
 Make sure you have include the file in the REPL or your .cy file.
 
 ```javascript
+//Example of TCP Client
 // Initialize the object
 
 var onOpen    = function () { ... };
 var onClose   = function() { ... };
 var onMessage = function(data) { ... };
 
-// You cal also use .send(data) in the function to send data back to the server. 
+// You cal also use this.send(data) in the function to send data back to the server. 
 
 var sock = BlockingSocket(host,port,onOpen,onClose,onMessage);
 // Loop for data
@@ -22,10 +23,35 @@ var sock = BlockingSocket(host,port,onOpen,onClose,onMessage);
 sock.run()
 ```
 
+You can also create a TCP server as following
+
+```javascript
+//Example TCP Server
+//Initialize the object
+
+var onSocketCreated = function() {...};
+var onConnectionOpen = function(){...};
+var onConnectionClose = function(){...};
+var onMessage = function(data,sockaddrRef){...};
+
+// You cal also use this.send(data) in the function to send data back to the server. 
+
+var HOST = "0.0.0.0"
+var PORT = 9005
+
+var sock = new TCPServer(HOST,PORT,onSocketCreated,onConnectionOpen,onConnectionClose,onMessage);
+// Loop for data
+// .serve() is a blocking call which waits for connection
+// Only one connection is handled at a time. As its synchronous.
+sock.serve();
+
+```
+
 TODO
 ----
 
-Its just a basic library. So many things are missing. Currently it connects to TCP server only.
+Its just a basic library. So many things are missing. Currently it connects to TCP server and also can act as TCP Server. 
+* Make it asynchronous
 
 
 ## License

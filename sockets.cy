@@ -166,6 +166,111 @@ function convert_sockaddr_to_pointer(sockaddr){
 	return sockaddrRef;
 }
 
+function TCPServer(host,port,onCreated,onConnectionOpen,onConnectionClose,onMessage,backlog=5){
+	this.host = host;
+	this.port = port;
+	this.onCreated = onCreated;
+	this.onConnectionOpen = onConnectionOpen;
+	this.onConnectionClose = onConnectionClose;
+	this.onMessage = onMessage;
+	this.backlog = backlog;
+
+	this._BUFFER_SIZE = 4096;
+	this._sockfd = -1;
+	this._sockaddr = null;
+	this._sockaddrRef= null;
+	this._buffer = null;
+
+	this._currentConnectionSockfd = -1;
+	this._currentConnectionSockaddr = null;
+	this._currentConnectionSockaddrRef = null;
+
+	this.serve = function(){
+		this._serve();
+	}
+
+	this.send = function(data){
+		w = write(this._currentConnectionSockfd,create_c_string(data),data.length);
+		if(w<0){ c_str = create_c_string("Error writing"); perror(c_str); free(c_str);}
+		return w;
+	}
+
+
+
+	this._initialize = function(){
+		this._sockfd = socket(AF_INET,SOCK_STREAM,0);
+		this._sockaddr = create_sockaddr_in(AF_INET,this.host,this.port);
+		this._sockaddrRef = convert_sockaddr_to_pointer(this._sockaddr);
+		c = bind(this._sockfd,this._sockaddrRef,_SIZE_OF_SOCKADDR);
+		if(c<0){
+			c_str = create_c_string("Error Connecting");
+			perror(c_str);
+			free(c_str);
+		}
+		listen(this._sockfd,this.backlog);
+		if(c>=0)
+			this.onCreated();
+		return c;
+	};
+	this._close = function(){
+		close(this._currentConnectionSockfd);
+		//free_sockaddr(this._currentsockaddr);
+		free(this._currentConnectionSockaddrRef);
+		this.onConnectionClose();
+	};
+	this._message = function(data){
+		this.onMessage(data,this._currentConnectionSockaddrRef);
+	};
+		
+	this._cleanup = function(){
+		close(this._sockfd);
+		free_sockaddr(this._sockaddr);
+		free(this._sockaddrRef);
+		if(this._buffer!=null) {
+			free(this._buffer);
+			this._buffer = null;
+		}
+	}
+	this._serve = function(){
+		
+		if(this._initialize()<0) return null;
+		this._buffer = new Pointer(malloc(this._BUFFER_SIZE),"C");	
+		//NSLog("Buffer created");
+		while(true){
+			this._currentConnectionSockaddrRef = new Pointer(malloc(16),"C");
+			sockaddrSizeRef = new Pointer(malloc(4),"I");
+			*sockaddrSizeRef = 16;
+			//NSLog("Waiting for connection");
+			this._currentConnectionSockfd = accept(this._sockfd,this._currentConnectionSockaddrRef,sockaddrSizeRef);
+			//NSLog("Connection accquire")
+			if (this._currentConnectionSockfd < 0){
+          		c_str = create_c_string("Error Connecting");
+				perror(c_str);
+				//Cleaning up
+				free(c_str);
+				free(sockaddrSizeRef);
+				free(this._currentConnectionSockaddrRef);
+				continue;
+          	}
+          	readValue = 0;
+          	while(true){
+          		//NSLog("Waiting for messsage");
+          		memset(this._buffer,0,this._BUFFER_SIZE);
+				readValue = read(this._currentConnectionSockfd,this._buffer,this._BUFFER_SIZE);
+				//NSLog("Message received");
+				if(readValue<=0) { /*c_str = create_c_string("Error Reading"); perror(c_str); free(c_str);*/ break;}
+				this._message(string_from_buffer(this._buffer),this._currentConnectionSockaddrRef);
+          	}
+          	this._close();
+          	//Cleaning up
+          	free(sockaddrSizeRef);
+
+		}
+		this._cleanup();
+
+	}
+}
+
 
 function BlockingSocket(host,port,onOpen,onClose,onMessage){
 	
